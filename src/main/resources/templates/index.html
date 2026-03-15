@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ko" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OrderMgtSystem - 주문 실습 페이지</title>
+    <style>
+        :root {
+            --bg: #f5f7fa;
+            --panel: #ffffff;
+            --text: #1f2937;
+            --muted: #6b7280;
+            --brand: #0f766e;
+            --brand-dark: #115e59;
+            --danger: #b91c1c;
+            --border: #e5e7eb;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: "Noto Sans KR", "Pretendard", sans-serif;
+            background: linear-gradient(120deg, #f8fafc 0%, #eef2ff 100%);
+            color: var(--text);
+        }
+
+        .container {
+            max-width: 980px;
+            margin: 48px auto;
+            padding: 0 16px;
+        }
+
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+        }
+
+        .header {
+            padding: 24px;
+            background: linear-gradient(135deg, #0f766e 0%, #0ea5e9 100%);
+            color: #ffffff;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 26px;
+        }
+
+        .header p {
+            margin: 8px 0 0;
+            opacity: 0.9;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+        }
+
+        th {
+            background: #f8fafc;
+            color: #334155;
+            font-weight: 700;
+        }
+
+        .qty-input {
+            width: 80px;
+            padding: 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+        }
+
+        .order-btn {
+            border: 0;
+            background: var(--brand);
+            color: #fff;
+            border-radius: 8px;
+            padding: 9px 12px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .order-btn:hover {
+            background: var(--brand-dark);
+        }
+
+        .empty {
+            padding: 22px 16px;
+            color: var(--muted);
+        }
+
+        .footnote {
+            padding: 16px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+
+        @media (max-width: 720px) {
+            .header h1 { font-size: 22px; }
+            th:nth-child(3), td:nth-child(3) { display: none; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="panel">
+        <div class="header">
+            <h1>상품 목록 및 주문 실습</h1>
+            <p>수량을 입력하고 주문하기 버튼을 누르면 /api/orders로 Fetch 요청이 전송됩니다.</p>
+        </div>
+
+        <table>
+            <thead>
+            <tr>
+                <th>상품 ID</th>
+                <th>상품명</th>
+                <th>가격</th>
+                <th>재고</th>
+                <th>주문 수량</th>
+                <th>액션</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr th:if="${#lists.isEmpty(products)}">
+                <td colspan="6" class="empty">등록된 상품이 없습니다.</td>
+            </tr>
+            <tr th:each="product : ${products}">
+                <td th:text="${product.productId}"></td>
+                <td th:text="${product.name}"></td>
+                <td th:text="${#numbers.formatDecimal(product.price, 1, 'COMMA', 0, 'POINT')} + '원'"></td>
+                <td th:text="${product.stockQuantity}"></td>
+                <td>
+                    <input class="qty-input" type="number" min="1" value="1"
+                           th:attr="id='qty-' + ${product.productId}">
+                </td>
+                <td>
+                    <button class="order-btn" type="button"
+                            th:attr="data-product-id=${product.productId},data-product-name=${product.name}"
+                            onclick="placeOrder(this)">
+                        주문하기
+                    </button>
+                </td>
+            </tr>
+            </tbody>
+        </table>
+
+        <div class="footnote">
+            실패 시 서버가 반환한 message 값을 우선 표시합니다.
+        </div>
+    </div>
+</div>
+
+<script>
+    async function placeOrder(button) {
+        const productId = Number(button.dataset.productId);
+        const productName = button.dataset.productName;
+        const qtyInput = document.getElementById(`qty-${productId}`);
+        const quantity = Number(qtyInput.value);
+
+        if (!Number.isInteger(quantity) || quantity <= 0) {
+            alert('주문 수량은 1 이상의 정수여야 합니다.');
+            qtyInput.focus();
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/orders', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    productId,
+                    quantity
+                })
+            });
+
+            const payload = await response.json();
+
+            if (response.ok) {
+                alert(`주문 성공: ${productName} ${quantity}개 (orderId=${payload.orderId})`);
+                window.location.reload();
+                return;
+            }
+
+            const message = payload.message || '주문 처리 중 오류가 발생했습니다.';
+            alert(`주문 실패: ${message}`);
+        } catch (error) {
+            alert('네트워크 오류로 주문에 실패했습니다. 잠시 후 다시 시도해주세요.');
+        }
+    }
+</script>
+</body>
+</html>
